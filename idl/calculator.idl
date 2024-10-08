@@ -1,0 +1,4 @@
+service calculator {
+    add(float64 a, float64 b) -> (float64 result);
+    sub(float64 a, float64 b) -> (float64 result);
+}

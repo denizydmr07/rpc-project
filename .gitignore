@@ -1,0 +1,16 @@
+# Executable binaries
+*.out
+
+# Go modules
+go.sum
+vendor/
+
+# Logs
+logs/
+*.log
+
+
+# Generated stubs
+client/stub/*.go
+server/stub/*.go
+
