@@ -1,4 +1,4 @@
-module github.com/denizydmr07/rpc-project/generators
+module github.com/denizydmr07/rpc-project/generator_client_stub
 
 go 1.18
 
