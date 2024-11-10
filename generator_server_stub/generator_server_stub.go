@@ -57,7 +57,47 @@ import (
 	"encoding/json"
 	"time"
 	"net"
+
+	"github.com/denizydmr07/zapwrapper/pkg/zapwrapper"
+	"go.uber.org/zap"
 )
+
+var logger *zap.Logger = zapwrapper.NewLogger(
+	zapwrapper.DefaultFilepath,   // Log file path
+	zapwrapper.DefaultMaxBackups, // Max number of log files to retain
+	zapwrapper.DefaultLogLevel,   // Log level
+)
+
+// address of the load balancer
+var lbHearbeatAddress = "localhost:7070"
+
+// sendHeartbeats sends heartbeats to the load balancer
+func SendHeartbeats(lbDown chan struct{}) {
+	conn, err := net.Dial("tcp", lbHearbeatAddress)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	request := map[string]interface{}{
+		"heartbeat": true,
+	}
+
+	encoder := json.NewEncoder(conn)
+
+	// send heartbeats every 2 seconds, keep the connection alive
+	for {
+		err := encoder.Encode(request)
+		if err != nil {
+			logger.Error("Error in sending heartbeat", zap.Error(err))
+			// send a signal to the server that the load balancer is down
+			lbDown <- struct{}{}
+			return
+		}
+		logger.Debug("Heartbeat sent to load balancer")
+		time.Sleep(2 * time.Second)
+	}
+}
 
 func HandleConnection(conn net.Conn) {
 	conn.SetReadDeadline(time.Now().Add(5 * time.Second))

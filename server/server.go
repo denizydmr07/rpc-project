@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	portPtr := flag.String("p", "8080", "Port to listen")
+	portPtr := flag.String("p", "8081", "Port to listen")
 
 	flag.Parse()
 
@@ -27,6 +27,9 @@ func main() {
 	)
 
 	defer logger.Sync() // Flush any buffered log entries
+
+	// channel to detect if the load balancer is down
+	lbDown := make(chan struct{})
 
 	// Channel to listen SIGINT and SIGTERM
 	stop := make(chan os.Signal, 1)
@@ -64,7 +67,16 @@ func main() {
 		}
 	}()
 
-	<-stop
+	//? Would it violate the RPC principles if the server sends heartbeats to the load balancer explicitly?
+	go stub.SendHeartbeats(lbDown)
+
+	// waiting for the load balancer to go down or the server to receive a signal
+	select {
+	case <-lbDown:
+		logger.Error("Load balancer is down")
+	case <-stop:
+		logger.Info("Received signal to stop")
+	}
 
 	// Stop the server
 	cancel()
