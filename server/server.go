@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net"
 	"os"
 	"os/signal"
@@ -15,6 +16,10 @@ import (
 )
 
 func main() {
+	portPtr := flag.String("p", "8080", "Port to listen")
+
+	flag.Parse()
+
 	logger := zapwrapper.NewLogger(
 		zapwrapper.DefaultFilepath,   // Log file path
 		zapwrapper.DefaultMaxBackups, // Max number of log files to retain
@@ -32,7 +37,7 @@ func main() {
 	defer cancel()
 
 	// Listen on port 8080
-	ln, err := net.Listen("tcp", ":8080")
+	ln, err := net.Listen("tcp", ":"+*portPtr)
 	if err != nil {
 		logger.Error("Error in Listen", zap.Error(err))
 		return
