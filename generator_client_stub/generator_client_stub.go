@@ -1,10 +1,7 @@
-// generators/stub_generator.go
-
 package main
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -135,88 +132,6 @@ func addServiceToClient(service Service) {
 	writer.Flush()
 }
 
-var serverStubTemplate = `
-package stub
-
-import (
-	"encoding/json"
-	"time"
-	"net"
-)
-
-func HandleConnection(conn net.Conn) {
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-
-	decoder := json.NewDecoder(conn)
-	var request map[string]interface{}
-	decoder.Decode(&request)
-
-	method := request["method"].(string)
-	params := request["params"].(map[string]interface{})
-
-	var response map[string]interface{}
-
-	switch method {
-	{{range .Methods}}
-	case "{{.Name}}":
-		result, err := {{.Name}}({{range $key, $value := .Params}}params["{{$key}}"].({{$value}}), {{end}})
-
-		if err == nil {
-			response = map[string]interface{}{
-				"result": result,
-			}
-		} else {
-			response = map[string]interface{}{
-				"error": err.Error(),
-			}
-		}
-	{{end}}
-	default:
-		response = map[string]interface{}{
-			"error": "Invalid RPC Call Method",
-		}
-	}
-
-	encoder := json.NewEncoder(conn)
-	encoder.Encode(response)
-}
-
-// implmentation of Add method
-func Add(a float64, b float64) (float64, error) {
-	return a + b, nil
-}
-
-// implmentation of Sub method
-func Sub(a float64, b float64) (float64, error) {
-	return a - b, nil
-}
-`
-
-func addServiceToServer(service Service) {
-	fmt.Printf("Service: %s\n", service)
-	tmpl, err := template.New("serverStub").Parse(serverStubTemplate)
-	if err != nil {
-		panic(err)
-	}
-
-	os.Mkdir("../server/stub", 0755)
-
-	file, err := os.Create("../server/stub/server_stub_" + service.Name + ".go")
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	writer := bufio.NewWriter(file)
-
-	err = tmpl.Execute(writer, service)
-	if err != nil {
-		panic(err)
-	}
-
-	writer.Flush()
-}
-
 func main() {
 	// c reating a new logger
 	logger := zapwrapper.NewLogger(
@@ -291,9 +206,6 @@ func main() {
 
 	addServiceToClient(*service) // add the service to the client stub
 	logger.Debug("Service added to client stub", zap.String("service", service.Name))
-
-	addServiceToServer(*service) // add the service to the server stub
-	logger.Debug("Service added to server stub", zap.String("service", service.Name))
 
 	file.Close()
 }
