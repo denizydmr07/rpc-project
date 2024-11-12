@@ -61,9 +61,13 @@ import (
 )
 
 func callRPC(method string, params map[string]interface{}) map[string]interface{} {
+	var response map[string]interface{}
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
-		panic(err)
+		response = map[string]interface{}{
+			"error": err.Error(),
+		}
+		return response
 	}
 	defer conn.Close()
 
@@ -76,7 +80,6 @@ func callRPC(method string, params map[string]interface{}) map[string]interface{
 	encoder.Encode(request)
 
 	decoder := json.NewDecoder(conn)
-	var response map[string]interface{}
 	decoder.Decode(&response)
 
 	return response

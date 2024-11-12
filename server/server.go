@@ -68,7 +68,7 @@ func main() {
 	}()
 
 	//? Would it violate the RPC principles if the server sends heartbeats to the load balancer explicitly?
-	go stub.SendHeartbeats(lbDown)
+	go stub.SendHeartbeats(lbDown, *portPtr)
 
 	// waiting for the load balancer to go down or the server to receive a signal
 	select {

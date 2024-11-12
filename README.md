@@ -4,12 +4,10 @@
 go version go1.19 linux/amd64
 
 ### Run
-
-1) running stub_generator.go under generators folder creates client and server stubs
-2) then server and client can be run respectively
+1) run "run_generators.py" which creates the stubs under scripts dir
+2) "go run ." the load balancer under loadbalancer dir
+3) "go run ." the server under server dir
+4) "go run ." the client under client dir
 
 ### TODO
-- [ ] Ip address needs to be given as a parameter or any other way, now sockets use localhost
-- [ ] load balancer
-- [ ] additional functions
-- [ ] error handling 
+
