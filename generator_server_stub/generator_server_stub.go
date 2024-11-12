@@ -72,10 +72,13 @@ var logger *zap.Logger = zapwrapper.NewLogger(
 var lbHearbeatAddress = "localhost:7070"
 
 // sendHeartbeats sends heartbeats to the load balancer
-func SendHeartbeats(lbDown chan struct{}) {
+func SendHeartbeats(lbDown chan struct{}, port string) {
 	conn, err := net.Dial("tcp", lbHearbeatAddress)
 	if err != nil {
-		panic(err)
+		logger.Error("Error in dialing load balancer", zap.Error(err))
+		// send a signal to the server that the load balancer is down
+		lbDown <- struct{}{}
+		return
 	}
 	defer conn.Close()
 
@@ -84,6 +87,21 @@ func SendHeartbeats(lbDown chan struct{}) {
 	}
 
 	encoder := json.NewEncoder(conn)
+
+	// send the first heartbeat, which also contains the serving port
+	request["port"] = port
+	err = encoder.Encode(request)
+	if err != nil {
+		logger.Error("Error in sending heartbeat", zap.Error(err))
+		// send a signal to the server that the load balancer is down
+		lbDown <- struct{}{}
+		return
+	}
+	// remove the port from the request
+	delete(request, "port")
+
+	// wait for 2 seconds
+	time.Sleep(2 * time.Second)
 
 	// send heartbeats every 2 seconds, keep the connection alive
 	for {
