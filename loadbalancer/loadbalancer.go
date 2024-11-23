@@ -159,12 +159,6 @@ func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 	clientEncoder := json.NewEncoder(conn)
 	clientDecoder := json.NewDecoder(conn)
 
-	server := lb.getServer()
-	if server == nil {
-		sendError(clientEncoder, "No server available")
-		return
-	}
-
 	if err := clientDecoder.Decode(&request); err != nil {
 		logger.Error("Error in decoding request", zap.Error(err))
 		sendError(clientEncoder, "Error in decoding the request")
@@ -172,6 +166,12 @@ func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 	}
 
 	logger.Debug("Request received from client", zap.Any("request", request))
+
+	server := lb.getServer()
+	if server == nil {
+		sendError(clientEncoder, "No server available")
+		return
+	}
 
 	serverConn, err := net.Dial("tcp", server.ServingAddress)
 	if err != nil {

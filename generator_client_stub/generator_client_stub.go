@@ -64,8 +64,15 @@ func callRPC(method string, params map[string]interface{}) map[string]interface{
 	var response map[string]interface{}
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
+		var errorStr string
+		// if error contains dial tcp error, return load balancer is down
+		if _, ok := err.(*net.OpError); ok {
+			errorStr = "Load balancer is down"
+		} else {
+			errorStr = err.Error()
+		}
 		response = map[string]interface{}{
-			"error": err.Error(),
+			"error": errorStr,
 		}
 		return response
 	}
