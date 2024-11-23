@@ -31,7 +31,9 @@ type ServerInfo struct {
 }
 
 type LoadBalancer struct {
-	Servers map[string]*ServerInfo
+	Servers map[string]*ServerInfo // key is the HeartbeatAddress
+	// an index for keeping the index of the servers for the round robin algorithm
+	Index   int
 	Timeout time.Duration
 	Mutex   sync.Mutex
 }
@@ -220,7 +222,31 @@ func sendError(encoder *json.Encoder, message string) {
 
 // TODO: Implement the load balancing algorithm
 func (lb *LoadBalancer) getServer() *ServerInfo {
-	// return the first server for now
+	// defer func() {
+	// 	lb.Index = (lb.Index + 1) % len(lb.Servers)
+	// 	lb.Mutex.Unlock()
+	// }()
+
+	// currentIndex := 0
+
+	// lb.Mutex.Lock()
+	// // check if lb.Index is greater than the length of the servers
+	// if lb.Index >= len(lb.Servers) {
+	// 	lb.Index = 0
+	// }
+	// for _, server := range lb.Servers {
+	// 	// check if currentIndex is the same as the index
+	// 	if currentIndex == lb.Index {
+	// 		logger.Debug("Server selected with round robin index", zap.Int("index", lb.Index))
+	// 		return server
+	// 	} else {
+	// 		currentIndex++
+	// 	}
+	// }
+
+	// return nil
+
+	// RETURNING FIRST SERVER FOR NOW
 	for _, server := range lb.Servers {
 		return server
 	}
