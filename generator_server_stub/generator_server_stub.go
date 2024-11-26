@@ -100,8 +100,11 @@ func SendHeartbeats(lbDown chan struct{}, port string) {
 	// remove the port from the request
 	delete(request, "port")
 
-	// wait for 2 seconds
-	time.Sleep(2 * time.Second)
+	// set the sleep duration
+	sleepDuration := 500 * time.Millisecond
+
+	// wait for sleepDuration
+	time.Sleep(sleepDuration)
 
 	// send heartbeats every 2 seconds, keep the connection alive
 	for {
@@ -113,7 +116,7 @@ func SendHeartbeats(lbDown chan struct{}, port string) {
 			return
 		}
 		logger.Debug("Heartbeat sent to load balancer")
-		time.Sleep(2 * time.Second)
+		time.Sleep(sleepDuration)
 	}
 }
 
