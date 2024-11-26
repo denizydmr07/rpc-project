@@ -211,6 +211,7 @@ func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 
 	logger.Debug("Request received from client", zap.Any("request", request))
 
+getServer:
 	// get the server using the load balancing algorithm
 	server := lb.getServer()
 	if server == nil {
@@ -222,7 +223,15 @@ func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 	serverConn, err := net.Dial("tcp", server.ServingAddress)
 	if err != nil {
 		logger.Error("Error connecting to server", zap.Error(err))
-		sendError(clientEncoder, "Error in connecting to the server")
+
+		if _, ok := err.(*net.OpError); ok {
+			// this mean tcp dial error, thus server is down yet not removed
+			// we need to get a new server
+			logger.Debug("Server is down, getting a new server")
+			goto getServer
+		} else {
+			sendError(clientEncoder, "Error in connecting to server")
+		}
 		return
 	}
 	defer serverConn.Close()
@@ -294,8 +303,9 @@ func (lb *LoadBalancer) getServer() *ServerInfo {
 }
 
 func main() {
-	// Create a new load balancer with a timeout of 5 seconds
-	lb := NewLoadBalancer(5 * time.Second)
+	// Create a new load balancer with a timeout
+	timeout := 1*time.Second + 200*time.Millisecond
+	lb := NewLoadBalancer(timeout)
 
 	// Channel to listen SIGINT and SIGTERM
 	stop := make(chan os.Signal, 1)
