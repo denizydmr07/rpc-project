@@ -22,44 +22,59 @@ var logger *zap.Logger = zapwrapper.NewLogger(
 )
 
 type ServerInfo struct {
-	HeartbeatAddress string
-	ServingAddress   string
-	LastHeartbeat    time.Time
-	IsHealthy        bool
-	heartBeatConn    net.Conn
-	Mutex            sync.Mutex
+	HeartbeatAddress string     // address which server sends heartbeats
+	ServingAddress   string     // address which server serves
+	LastHeartbeat    time.Time  // last  time the server sent a heartbeat
+	IsHealthy        bool       // is the server healthy
+	heartBeatConn    net.Conn   // connection which server sends heartbeats from HeartbeatAddress
+	Mutex            sync.Mutex // mutex to lock the server
 }
 
 type LoadBalancer struct {
-	Servers map[string]*ServerInfo // key is the HeartbeatAddress
-	// an index for keeping the index of the servers for the round robin algorithm
-	Index   int
-	Timeout time.Duration
-	Mutex   sync.Mutex
+	Servers         map[string]*ServerInfo // key is the HeartbeatAddress
+	ServerKeys      []string               // keys of the Servers map to get the server in round-robin fashion
+	RoundRobinIndex int                    // last index of the ServerKeys to get the server in round-robin fashion
+	Timeout         time.Duration          // timeout to consider a server unhealthy
+	Mutex           sync.Mutex             // mutex to lock the LoadBalancer
 }
 
+// NewLoadBalancer creates a new LoadBalancer with the given timeout
 func NewLoadBalancer(timeout time.Duration) *LoadBalancer {
 	return &LoadBalancer{
-		Servers: make(map[string]*ServerInfo),
-		Timeout: timeout,
+		Servers:    make(map[string]*ServerInfo),
+		ServerKeys: []string{},
+		Timeout:    timeout,
 	}
 }
 
 // MonitorHeartbeats checks the heartbeats of the servers
+// works in a separate goroutine
 func (lb *LoadBalancer) MonitorHeartbeats() {
-	for {
-		time.Sleep(lb.Timeout)
+	for { // infinite loop
+		time.Sleep(lb.Timeout) // sleep for the timeout duration
 		lb.Mutex.Lock()
+
+		// for each server
 		for _, server := range lb.Servers {
+
+			// if the server's last heartbeat is older than the timeout
 			if time.Since(server.LastHeartbeat) > lb.Timeout {
 				logger.Debug("Server is unhealthy", zap.String("address", server.HeartbeatAddress))
-				server.IsHealthy = false
+				server.IsHealthy = false // mark the server as unhealthy
 
 				// close the connection
 				server.heartBeatConn.Close()
 
 				// remove the server from the list
 				delete(lb.Servers, server.HeartbeatAddress)
+
+				// remove the server from the keys
+				for i, key := range lb.ServerKeys {
+					if key == server.HeartbeatAddress {
+						lb.ServerKeys = append(lb.ServerKeys[:i], lb.ServerKeys[i+1:]...)
+						break
+					}
+				}
 
 				logger.Debug("Server removed", zap.String("address", server.HeartbeatAddress))
 
@@ -70,7 +85,7 @@ func (lb *LoadBalancer) MonitorHeartbeats() {
 	}
 }
 
-// listen for heartbeats on tcp port 7070
+// ListenForHeartbeats listens for heartbeats from the servers on port 7070
 func (lb *LoadBalancer) ListenForHeartbeats() error {
 	ln, err := net.Listen("tcp", ":7070")
 	if err != nil {
@@ -89,35 +104,49 @@ func (lb *LoadBalancer) ListenForHeartbeats() error {
 	}
 }
 
-// server will connect once and send heartbeats periodically
+// handleHeartbeat handles the heartbeat from a server .
+// a server connects to the load balancer on port 7070 and sends a heartbeat periodically.
+// the first heartbeat contains the port on which the server is serving.
+// persistent connection is used to send heartbeats.
 func (lb *LoadBalancer) handleHeartbeat(conn net.Conn) {
 	decoder := json.NewDecoder(conn)
 	var request map[string]interface{}
 
-	for {
+	for { // infinite loop
+
+		// decode the request
 		err := decoder.Decode(&request)
 		if err != nil {
 			return
 		}
+
+		// if the request contains a heartbeat
 		if _, ok := request["heartbeat"]; ok {
 			logger.Debug("Received heartbeat from server", zap.String("address", conn.RemoteAddr().String()))
 			address := conn.RemoteAddr().String()
 			lb.Mutex.Lock()
+
+			// if the server is already in the list
 			if server, ok := lb.Servers[address]; ok {
 				server.LastHeartbeat = time.Now()
 				server.IsHealthy = true
-			} else {
+			} else { // if the server is not in the list
+
 				logger.Debug("New server connected", zap.String("address", address))
+
 				// remove the port from the address by finding the last colon
 				servingAddress := strings.Split(address, ":")[0]
+
 				// add the port from the request
-				if port, ok := request["port"]; ok {
+				if port, ok := request["port"]; ok { // if the port is found in the request
 					servingAddress += ":" + port.(string)
 				} else {
 					logger.Error("Port not found in the heartbeat request", zap.Any("request", request))
 					//! TODO: implement a mechanism to report the error to the server
 					continue
 				}
+
+				// create a new server
 				server := &ServerInfo{
 					HeartbeatAddress: address,
 					ServingAddress:   servingAddress,
@@ -125,7 +154,12 @@ func (lb *LoadBalancer) handleHeartbeat(conn net.Conn) {
 					IsHealthy:        true,
 					heartBeatConn:    conn,
 				}
+
+				// add the server to the map
 				lb.Servers[address] = server
+
+				// add the server to the keys slice
+				lb.ServerKeys = append(lb.ServerKeys, address)
 			}
 		} else {
 			logger.Error("Invalid heartbeat request from server", zap.Any("request", request))
@@ -134,7 +168,7 @@ func (lb *LoadBalancer) handleHeartbeat(conn net.Conn) {
 	}
 }
 
-// listen for requests from clients
+// ListenForRequests listens for requests from the clients on port 8080
 func (lb *LoadBalancer) ListenForRequests() error {
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
@@ -154,13 +188,21 @@ func (lb *LoadBalancer) ListenForRequests() error {
 }
 
 // TODO: There is a time where server is closed yet not removed, thus can be selected. We need to handle this. Maybe fault tolarence?
+
+// handleRequest handles the request from a client.
+// the request is relayed to a server and the response is sent back to the client.
+// the server is selected using the load balancing algorithm.
 func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 	defer conn.Close()
+
+	// request and response maps
 	request, response := make(map[string]interface{}), make(map[string]interface{})
 
+	// encoder and decoder for the client connection
 	clientEncoder := json.NewEncoder(conn)
 	clientDecoder := json.NewDecoder(conn)
 
+	// decode the request from the client
 	if err := clientDecoder.Decode(&request); err != nil {
 		logger.Error("Error in decoding request", zap.Error(err))
 		sendError(clientEncoder, "Error in decoding the request")
@@ -169,12 +211,14 @@ func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 
 	logger.Debug("Request received from client", zap.Any("request", request))
 
+	// get the server using the load balancing algorithm
 	server := lb.getServer()
 	if server == nil {
 		sendError(clientEncoder, "No server available")
 		return
 	}
 
+	// connect to the server server selected
 	serverConn, err := net.Dial("tcp", server.ServingAddress)
 	if err != nil {
 		logger.Error("Error connecting to server", zap.Error(err))
@@ -183,6 +227,7 @@ func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 	}
 	defer serverConn.Close()
 
+	// relay the request to the server
 	if err := relayJSON(request, serverConn); err != nil {
 		logger.Error("Error sending request to server", zap.Error(err))
 		sendError(clientEncoder, "Error in relaying request to server")
@@ -190,6 +235,7 @@ func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 	}
 	logger.Debug("Request sent to server")
 
+	// receive the response from the server
 	if err := receiveJSON(&response, serverConn); err != nil {
 		logger.Error("Error receiving response from server", zap.Error(err))
 		sendError(clientEncoder, "Error in receiving response from server")
@@ -198,6 +244,7 @@ func (lb *LoadBalancer) handleRequest(conn net.Conn) {
 
 	logger.Debug("Response received from server", zap.Any("response", response))
 
+	// send the response to the client
 	if err := clientEncoder.Encode(response); err != nil {
 		logger.Error("Error sending response to client", zap.Error(err))
 	}
@@ -222,40 +269,32 @@ func sendError(encoder *json.Encoder, message string) {
 
 // TODO: Implement the load balancing algorithm
 func (lb *LoadBalancer) getServer() *ServerInfo {
-	// defer func() {
-	// 	lb.Index = (lb.Index + 1) % len(lb.Servers)
-	// 	lb.Mutex.Unlock()
-	// }()
+	lb.Mutex.Lock()
+	defer lb.Mutex.Unlock()
 
-	// currentIndex := 0
-
-	// lb.Mutex.Lock()
-	// // check if lb.Index is greater than the length of the servers
-	// if lb.Index >= len(lb.Servers) {
-	// 	lb.Index = 0
-	// }
-	// for _, server := range lb.Servers {
-	// 	// check if currentIndex is the same as the index
-	// 	if currentIndex == lb.Index {
-	// 		logger.Debug("Server selected with round robin index", zap.Int("index", lb.Index))
-	// 		return server
-	// 	} else {
-	// 		currentIndex++
-	// 	}
-	// }
-
-	// return nil
-
-	// RETURNING FIRST SERVER FOR NOW
-	for _, server := range lb.Servers {
-		return server
+	// if there are no servers
+	if len(lb.ServerKeys) == 0 {
+		return nil
 	}
 
-	return nil
+	// if the round robin index is greater than the number of servers
+	if lb.RoundRobinIndex >= len(lb.ServerKeys) {
+		lb.RoundRobinIndex = 0
+	}
+	logger.Debug("Round robin index", zap.Int("index", lb.RoundRobinIndex))
+
+	// get the server using the round robin index
+	server := lb.Servers[lb.ServerKeys[lb.RoundRobinIndex]]
+
+	// increment the round robin index
+	lb.RoundRobinIndex++
+
+	logger.Debug("Selected server", zap.String("address", server.ServingAddress))
+	return server
 }
 
-// ! The load balancing algorithm is not implemented yet
 func main() {
+	// Create a new load balancer with a timeout of 5 seconds
 	lb := NewLoadBalancer(5 * time.Second)
 
 	// Channel to listen SIGINT and SIGTERM
