@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/denizydmr07/zapwrapper/pkg/zapwrapper"
+	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
 
@@ -86,8 +87,8 @@ func (lb *LoadBalancer) MonitorHeartbeats() {
 }
 
 // ListenForHeartbeats listens for heartbeats from the servers on port 7070
-func (lb *LoadBalancer) ListenForHeartbeats() error {
-	ln, err := net.Listen("tcp", ":7070")
+func (lb *LoadBalancer) ListenForHeartbeats(LB_HB_ADDRESS string) error {
+	ln, err := net.Listen("tcp", LB_HB_ADDRESS)
 	if err != nil {
 		logger.Error("Error in Listen", zap.Error(err))
 		return err
@@ -169,8 +170,8 @@ func (lb *LoadBalancer) handleHeartbeat(conn net.Conn) {
 }
 
 // ListenForRequests listens for requests from the clients on port 8080
-func (lb *LoadBalancer) ListenForRequests() error {
-	ln, err := net.Listen("tcp", ":8080")
+func (lb *LoadBalancer) ListenForRequests(LB_CLIENT_ADDRESS string) error {
+	ln, err := net.Listen("tcp", LB_CLIENT_ADDRESS)
 	if err != nil {
 		logger.Error("Error in Listen", zap.Error(err))
 		return err
@@ -303,6 +304,19 @@ func (lb *LoadBalancer) getServer() *ServerInfo {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		logger.Error("Error loading .env file", zap.Error(err))
+	}
+
+	LB_HB_ADDRESS := os.Getenv("LB_HB_ADDRESS")
+	LB_CLIENT_ADDRESS := os.Getenv("LB_CLIENT_ADDRESS")
+
+	if LB_HB_ADDRESS == "" || LB_CLIENT_ADDRESS == "" {
+		logger.Error("LB_HB_ADDRESS or LB_CLIENT_ADDRESS is not set")
+		return
+	}
+
 	// Create a new load balancer with a timeout
 	timeout := 1*time.Second + 200*time.Millisecond
 	lb := NewLoadBalancer(timeout)
@@ -322,13 +336,13 @@ func main() {
 	}()
 
 	// Listen for heartbeats
-	go lb.ListenForHeartbeats()
+	go lb.ListenForHeartbeats(LB_HB_ADDRESS)
 
 	// Monitor heartbeats
 	go lb.MonitorHeartbeats()
 
 	// Listen for requests
-	go lb.ListenForRequests()
+	go lb.ListenForRequests(LB_CLIENT_ADDRESS)
 
 	// wait for the signal to stop
 	<-ctx.Done()

@@ -62,7 +62,8 @@ import (
 
 func callRPC(method string, params map[string]interface{}) map[string]interface{} {
 	var response map[string]interface{}
-	conn, err := net.Dial("tcp", "localhost:8080")
+	LBClientAddress := "localhost:8080"
+	conn, err := net.Dial("tcp", LBClientAddress)
 	if err != nil {
 		var errorStr string
 		// if error contains dial tcp error, return load balancer is down
