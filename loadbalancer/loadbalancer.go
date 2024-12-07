@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"net"
 	"os"
@@ -170,8 +171,9 @@ func (lb *LoadBalancer) handleHeartbeat(conn net.Conn) {
 }
 
 // ListenForRequests listens for requests from the clients on port 8080
-func (lb *LoadBalancer) ListenForRequests(LB_CLIENT_ADDRESS string) error {
-	ln, err := net.Listen("tcp", LB_CLIENT_ADDRESS)
+func (lb *LoadBalancer) ListenForRequests(LB_CLIENT_ADDRESS string, tlsConfig *tls.Config) error {
+	//ln, err := net.Listen("tcp", LB_CLIENT_ADDRESS)
+	ln, err := tls.Listen("tcp", LB_CLIENT_ADDRESS, tlsConfig)
 	if err != nil {
 		logger.Error("Error in Listen", zap.Error(err))
 		return err
@@ -317,6 +319,17 @@ func main() {
 		return
 	}
 
+	cert, err := tls.LoadX509KeyPair("lb.crt", "lb.key")
+	if err != nil {
+		logger.Error("Error loading certificate", zap.Error(err))
+		return
+	}
+
+	// creare config for tls
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
 	// Create a new load balancer with a timeout
 	timeout := 1*time.Second + 200*time.Millisecond
 	lb := NewLoadBalancer(timeout)
@@ -342,7 +355,7 @@ func main() {
 	go lb.MonitorHeartbeats()
 
 	// Listen for requests
-	go lb.ListenForRequests(LB_CLIENT_ADDRESS)
+	go lb.ListenForRequests(LB_CLIENT_ADDRESS, tlsConfig)
 
 	// wait for the signal to stop
 	<-ctx.Done()
