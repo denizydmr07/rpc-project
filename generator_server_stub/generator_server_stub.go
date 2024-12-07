@@ -70,7 +70,7 @@ var logger *zap.Logger = zapwrapper.NewLogger(
 
 // sendHeartbeats sends heartbeats to the load balancer
 func SendHeartbeats(lbDown chan struct{}, port string) {
-	LBHeartbeatAddress := "localhost:7070"
+	LBHeartbeatAddress := "139.179.211.34:7070"
 	conn, err := net.Dial("tcp", LBHeartbeatAddress)
 	if err != nil {
 		logger.Error("Error in dialing load balancer", zap.Error(err))
