@@ -57,6 +57,7 @@ import (
 	"encoding/json"
 	"time"
 	"net"
+	"os"
 
 	"github.com/denizydmr07/zapwrapper/pkg/zapwrapper"
 	"go.uber.org/zap"
@@ -70,7 +71,11 @@ var logger *zap.Logger = zapwrapper.NewLogger(
 
 // sendHeartbeats sends heartbeats to the load balancer
 func SendHeartbeats(lbDown chan struct{}, port string) {
-	LBHeartbeatAddress := "139.179.211.34:7070"
+	LBHeartbeatAddress := os.Getenv("LB_HB_ADDRESS")
+	if LBHeartbeatAddress == "" {
+		LBHeartbeatAddress = "localhost:7070"
+	}
+	
 	conn, err := net.Dial("tcp", LBHeartbeatAddress)
 	if err != nil {
 		logger.Error("Error in dialing load balancer", zap.Error(err))

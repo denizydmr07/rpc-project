@@ -59,11 +59,15 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"os"
 )
 
 func callRPC(method string, params map[string]interface{}) map[string]interface{} {
 	var response map[string]interface{}
-	LBClientAddress := "139.179.211.34:8080"
+	LBClientAddress := os.Getenv("LB_CLIENT_ADDRESS")
+    if LBClientAddress == "" {
+        LBClientAddress = "localhost:8080" // default for local development
+    }
 
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,

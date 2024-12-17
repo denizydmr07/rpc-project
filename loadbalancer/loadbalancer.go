@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/denizydmr07/zapwrapper/pkg/zapwrapper"
-	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
 
@@ -306,13 +305,14 @@ func (lb *LoadBalancer) getServer() *ServerInfo {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		logger.Error("Error loading .env file", zap.Error(err))
-	}
-
 	LB_HB_ADDRESS := os.Getenv("LB_HB_ADDRESS")
+	if LB_HB_ADDRESS == "" {
+		LB_HB_ADDRESS = "localhost:7070"
+	}
 	LB_CLIENT_ADDRESS := os.Getenv("LB_CLIENT_ADDRESS")
+	if LB_CLIENT_ADDRESS == "" {
+		LB_CLIENT_ADDRESS = "localhost:8080"
+	}
 
 	if LB_HB_ADDRESS == "" || LB_CLIENT_ADDRESS == "" {
 		logger.Error("LB_HB_ADDRESS or LB_CLIENT_ADDRESS is not set")

@@ -3,7 +3,17 @@
 ### Version
 go version go1.19 linux/amd64
 
-### Run
+### Automatic setup
+`$ ./tidy.sh`
+
+### Recommended: Run Load Balancer and Servers in Docker
+- You can add as many servers as you want <br/>
+`docker compose up -d --scale server=10 --scale client=0`
+
+- You can connect to the load balancer from your machine directly, or use this command to create a client in a container: <br/>
+`docker compose up -d --scale client=1`
+
+### Manual setup
 1) "go mod tidy" (just at first) inside generator_client_stub and generator_server_stub
 2) run "run_generators.py" which creates the stubs under scripts dir
 3) "go mod tidy" (just at first) and "go run ." the load balancer under loadbalancer dir
@@ -17,4 +27,6 @@ go version go1.19 linux/amd64
 - [X] Handle edge cases: when server is down, load balancer realises that after 3 missing heartbets. At that interval, client may connect and load balancer may relays the request to the server. But the server is down. In this case, load balancer should return appropriate error to client or select another server.
 - [ ] Adding TLS 
 - [X] When server is unhealthy (missed 3 heartbets) we are removing it from the list of servers. But should we add it back when it is healthy again? 
-- [X] Delete IsHealty variable from server struct 
+- [X] Delete IsHealty variable from server struct
+- [ ] Server is not aware of the loadbalancer, if loadbalancer goes down, server does not know? (Maybe this is desirable, idk)
+- [ ] Need seperate dockerfiles for loadbalancer, server and client, but it is okay for testing. 

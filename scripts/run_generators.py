@@ -16,22 +16,21 @@ def run_command(command, success_message, failure_message):
 # Get the base directory of the script
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Navigate to the server generator directory and run the server stub generator
-server_stub_dir = os.path.join(base_dir, "../generator_server_stub")
-os.chdir(server_stub_dir)
+# Absolute paths for the stub directories
+server_stub_dir = os.path.abspath(os.path.join(base_dir, "..", "generator_server_stub"))
+client_stub_dir = os.path.abspath(os.path.join(base_dir, "..", "generator_client_stub"))
+
 print("Running the server stub generator...")
+os.chdir(server_stub_dir)
 run_command(["go", "run", "generator_server_stub.go"], 
             "Server stub generation successful!", 
             "Server stub generation failed.")
 
-# Navigate to the client generator directory and run the client stub generator
-client_stub_dir = os.path.join(base_dir, "../generator_client_stub")
-os.chdir(client_stub_dir)
+os.chdir(base_dir)
 print("Running the client stub generator...")
+os.chdir(client_stub_dir)
 run_command(["go", "run", "generator_client_stub.go"], 
             "Client stub generation successful!", 
             "Client stub generation failed.")
 
-# Navigate back to the root directory
-os.chdir(os.path.join(base_dir, "../"))
 print("Done.")

@@ -1,6 +1,8 @@
 module github.com/denizydmr07/rpc-project/server
 
-go 1.18
+go 1.22.4
+
+toolchain go1.23.4
 
 require (
 	github.com/denizydmr07/zapwrapper v0.1.0

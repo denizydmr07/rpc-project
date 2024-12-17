@@ -1,0 +1,43 @@
+services:
+  loadbalancer:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "7070:7070"
+    networks:
+      - rpc-network
+    command: ["/loadbalancer"]
+    environment:
+      - LB_HB_ADDRESS=0.0.0.0:7070
+      - LB_CLIENT_ADDRESS=0.0.0.0:8080
+
+  server:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - rpc-network
+    depends_on:
+      - loadbalancer
+    command: ["/server"]
+    environment:
+      - LB_HB_ADDRESS=loadbalancer:7070
+  
+  client:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - rpc-network
+    depends_on:
+      - loadbalancer
+      - server
+    command: ["/client"]
+    environment:
+      - LB_CLIENT_ADDRESS=loadbalancer:8080
+
+networks:
+  rpc-network:
+    driver: bridge
