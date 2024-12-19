@@ -55,6 +55,7 @@ package main
 
 import (
 	"encoding/json"
+	"crypto/tls"
 	"time"
 	"net"
 	"os"
@@ -75,8 +76,12 @@ func SendHeartbeats(lbDown chan struct{}, port string) {
 	if LBHeartbeatAddress == "" {
 		LBHeartbeatAddress = "localhost:7070"
 	}
+
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
 	
-	conn, err := net.Dial("tcp", LBHeartbeatAddress)
+	conn, err := tls.Dial("tcp", LBHeartbeatAddress, tlsConfig)
 	if err != nil {
 		logger.Error("Error in dialing load balancer", zap.Error(err))
 		// send a signal to the server that the load balancer is down

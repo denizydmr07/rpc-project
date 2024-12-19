@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -37,8 +37,19 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	cert, err := tls.LoadX509KeyPair("lb.crt", "lb.key")
+	if err != nil {
+		logger.Error("Error loading certificate", zap.Error(err))
+		return
+	}
+
+	// creare config for tls
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
 	// Listen on port 8080
-	ln, err := net.Listen("tcp", ":"+*portPtr)
+	ln, err := tls.Listen("tcp", ":"+*portPtr, tlsConfig)
 	if err != nil {
 		logger.Error("Error in Listen", zap.Error(err))
 		return

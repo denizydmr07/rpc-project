@@ -87,8 +87,8 @@ func (lb *LoadBalancer) MonitorHeartbeats() {
 }
 
 // ListenForHeartbeats listens for heartbeats from the servers on port 7070
-func (lb *LoadBalancer) ListenForHeartbeats(LB_HB_ADDRESS string) error {
-	ln, err := net.Listen("tcp", LB_HB_ADDRESS)
+func (lb *LoadBalancer) ListenForHeartbeats(LB_HB_ADDRESS string, tlsConfig *tls.Config) error {
+	ln, err := tls.Listen("tcp", LB_HB_ADDRESS, tlsConfig)
 	if err != nil {
 		logger.Error("Error in Listen", zap.Error(err))
 		return err
@@ -221,8 +221,12 @@ getServer:
 		return
 	}
 
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
 	// connect to the server server selected
-	serverConn, err := net.Dial("tcp", server.ServingAddress)
+	serverConn, err := tls.Dial("tcp", server.ServingAddress, tlsConfig)
 	if err != nil {
 		logger.Error("Error connecting to server", zap.Error(err))
 
@@ -349,7 +353,7 @@ func main() {
 	}()
 
 	// Listen for heartbeats
-	go lb.ListenForHeartbeats(LB_HB_ADDRESS)
+	go lb.ListenForHeartbeats(LB_HB_ADDRESS, tlsConfig)
 
 	// Monitor heartbeats
 	go lb.MonitorHeartbeats()
