@@ -3,8 +3,6 @@ package main
 import (
 	"github.com/denizydmr07/zapwrapper/pkg/zapwrapper"
 	"go.uber.org/zap"
-
-	"github.com/denizydmr07/rpc-project/client/stub"
 )
 
 func main() {
@@ -17,13 +15,13 @@ func main() {
 	defer logger.Sync() // Flush any buffered log entries
 	logger.Info("Client started")
 
-	result, err := stub.Add(1, 2)
+	result, err := Add(1, 2)
 	if err != nil {
 		logger.Error("Error in Add", zap.Error(err))
 	}
 	logger.Info("Add result", zap.Float64("result", result))
 
-	result, err = stub.Sub(1, 2)
+	result, err = Sub(1, 2)
 	if err != nil {
 		logger.Error("Error in Sub", zap.Error(err))
 	}

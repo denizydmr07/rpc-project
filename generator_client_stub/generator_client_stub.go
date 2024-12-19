@@ -52,7 +52,7 @@ func (m Method) String() string {
 // clientStubTemplate is the template for the client stub
 // it contains the callRPC function and the method stubs
 var clientStubTemplate = `
-package stub
+package main
 
 import (
 	"crypto/tls"
@@ -131,10 +131,10 @@ func addServiceToClient(service Service) {
 	}
 
 	//create stubs directory under client if it doesn't exist
-	os.Mkdir("../client/stub", 0755)
+	//os.Mkdir("../client/", 0755)
 
 	// create a new file under client/stub directory
-	file, err := os.Create("../client/stub/client_stub_" + service.Name + ".go")
+	file, err := os.Create("../client/client_stub_" + service.Name + ".go")
 	if err != nil {
 		panic(err)
 	}

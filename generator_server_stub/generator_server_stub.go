@@ -51,7 +51,7 @@ func (m Method) String() string {
 }
 
 var serverStubTemplate = `
-package stub
+package main
 
 import (
 	"encoding/json"
@@ -178,9 +178,9 @@ func addServiceToServer(service Service) {
 		panic(err)
 	}
 
-	os.Mkdir("../server/stub", 0755)
+	//os.Mkdir("../server/stub", 0755)
 
-	file, err := os.Create("../server/stub/server_stub_" + service.Name + ".go")
+	file, err := os.Create("../server/server_stub_" + service.Name + ".go")
 	if err != nil {
 		panic(err)
 	}

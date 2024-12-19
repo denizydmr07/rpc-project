@@ -11,8 +11,6 @@ import (
 
 	"github.com/denizydmr07/zapwrapper/pkg/zapwrapper"
 	"go.uber.org/zap"
-
-	"github.com/denizydmr07/rpc-project/server/stub"
 )
 
 func main() {
@@ -63,12 +61,12 @@ func main() {
 			}
 
 			logger.Info("Client connected", zap.String("address", conn.RemoteAddr().String()))
-			go stub.HandleConnection(conn)
+			go HandleConnection(conn)
 		}
 	}()
 
 	//? Would it violate the RPC principles if the server sends heartbeats to the load balancer explicitly?
-	go stub.SendHeartbeats(lbDown, *portPtr)
+	go SendHeartbeats(lbDown, *portPtr)
 
 	// waiting for the load balancer to go down or the server to receive a signal
 	select {
